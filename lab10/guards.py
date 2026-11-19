@@ -33,10 +33,91 @@ from . import helpers as H  # noqa: F401
 from .tools import Verdict
 
 
+def _facts(ctx, order_id):
+    """Nguồn sự thật cho một đơn: đơn, kiện ticket nói tới, độ trễ theo tracking DB, chính sách theo NGÀY hiệu lực."""
+    order = ctx.tools.lookup_order(order_id)
+    if order is None:
+        return None
+    parcel = H.ticket_parcel(order, ctx.ticket, ctx.as_of)
+    policy = H.effective_policy(ctx.tools.lookup_policies(), ctx.as_of)
+    return order, parcel, H.db_delay_days(parcel, ctx.as_of), policy
+
+
 def pre_guard(ctx):
+    # Cổng 3 (pre-mortem kỹ thuật: cờ index_active cập nhật trễ khi đổi chính sách): ghim phiên bản theo ngày hiệu lực.
+    policy = H.effective_policy(ctx.tools.lookup_policies(), ctx.as_of)
+    if policy is None:
+        return Verdict.escalate("không có chính sách hiệu lực hôm nay")
+    return Verdict.allow(policy_id=policy["policy_id"])
+
+
+def _refund_gate(ctx, action):
+    """Cổng 1 (HAZOP issue_refund): số tiền tự động không vượt quyền lợi tính từ tracking DB; phê duyệt phải hợp lệ."""
+    f = _facts(ctx, action.get("order_id"))
+    if f is None:
+        return Verdict.escalate("không tra được đơn trong DB")
+    order, parcel, delay, policy = f
+    amount = action.get("amount_vnd", 0)
+    if action.get("approval_id"):
+        appr = ctx.tools.lookup_approvals(approval_id=action["approval_id"])
+        approver = (ctx.gates or {}).get("operations", {}).get("approver_id")
+        a = appr[0] if appr else {}
+        if (a.get("status") != "valid" or a.get("expires_at", "") < ctx.as_of or a.get("order_id") != order["order_id"]
+                or amount > a.get("max_vnd", 0) or (approver and a.get("approver_id") != approver)):
+            return Verdict.escalate("phê duyệt không hợp lệ (đã dùng / hết hạn / khác đơn / vượt mức): chờ người duyệt")
+        return Verdict.allow()
+    if action.get("payer", "LOGIX") != "LOGIX":
+        return Verdict.escalate("hoàn tự động bắt shop trả tiền: ngoài chính sách, chờ người duyệt")
+    entitled = H.entitlement_vnd(policy, order, delay, parcel.get("delay_cause"))
+    already = sum(r["amount_vnd"] for r in ctx.tools.ledger_rows(order_id=order["order_id"]))
+    allowed = max(0, entitled - already)
+    if allowed <= 0:
+        ctx.log("refund_blocked", entitled=entitled, already=already, asked=amount)
+        return Verdict.deny(f"theo tracking DB đơn không còn quyền lợi hoàn (được {entitled}đ, đã hoàn {already}đ)")
+    if amount > allowed:
+        ctx.log("refund_capped", entitled=entitled, already=already, asked=amount)
+        return Verdict.modify(f"hạ số tiền về quyền lợi theo DB ({allowed}đ)", amount_vnd=allowed)
+    # shortcut: sổ cái không có ngày, nên tính cả dòng lịch sử như hôm nay (nghiêng về an toàn); thêm cột ngày thì sửa.
+    per_cust = ctx.tools.ops_limits().get("max_auto_refund_per_customer_per_day_vnd")
+    spent = sum(r["amount_vnd"] for r in ctx.tools.ledger_rows(customer_id=order["customer_id"]) if not r.get("approval_id"))
+    if per_cust is not None and spent + amount > per_cust:
+        return Verdict.escalate("vượt trần hoàn tự động mỗi khách mỗi ngày (ops_limits): chờ người duyệt")
+    return Verdict.allow()
+
+
+def _fault_gate(ctx, action):
+    """Cổng 2 (HAZOP file_carrier_fault, bên thứ ba): chỉ ghi lỗi cho đúng kiện trễ, có nguyên nhân thuộc lỗi hãng."""
+    f = _facts(ctx, action.get("order_id"))
+    if f is None:
+        return Verdict.deny("không tra được đơn: không ghi lỗi hãng")
+    order, parcel, delay, policy = f
+    if not H.carrier_at_fault(policy, parcel, delay):
+        ctx.log("fault_blocked", parcel_id=parcel["parcel_id"], db_delay=delay, cause=parcel.get("delay_cause"))
+        return Verdict.deny("tracking DB không cho thấy lỗi hãng (độ trễ hoặc nguyên nhân): không ghi lỗi")
+    max_strikes = ctx.tools.ops_limits().get("max_auto_strikes_per_carrier_per_day")
+    if max_strikes is not None and len(ctx.tools.fault_rows(carrier_id=parcel["carrier_id"])) >= max_strikes:
+        ctx.log("fault_held", carrier_id=parcel["carrier_id"])
+        return Verdict.deny("hãng đã đủ số lỗi tự động trong ngày (ops_limits): để người ghi")
+    fixed = {"parcel_id": parcel["parcel_id"], "carrier_id": parcel["carrier_id"],
+             "driver_id": parcel.get("driver_id"), "delay_days": delay}
+    if any(action.get(k) != v for k, v in fixed.items()):
+        return Verdict.modify("ghi lỗi theo kiện trễ và độ trễ trong tracking DB", **fixed)
     return Verdict.allow()
 
 
 def write_gate(ctx, action):
     # action = {"tool": "issue_refund", "ticket_id":..., "order_id":..., "amount_vnd":..., "payer":..., ...}
+    tool = action.get("tool")
+    if tool == "issue_refund":
+        return _refund_gate(ctx, action)
+    if tool == "file_carrier_fault":
+        return _fault_gate(ctx, action)
+    if tool == "notify_carrier":
+        # Pháp lý: chỉ gửi hãng đúng các trường chính sách cho phép (danh sách trắng), bỏ ghi chú khách và liên hệ người nhận.
+        policy = H.effective_policy(ctx.tools.lookup_policies(), ctx.as_of) or {}
+        keep = set(policy.get("carrier_notice_fields", []))
+        payload = action.get("payload", {})
+        if set(payload) - keep:
+            return Verdict.modify("bỏ trường ngoài carrier_notice_fields",
+                                  payload={k: v for k, v in payload.items() if k in keep})
     return Verdict.allow()
