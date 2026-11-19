@@ -1,12 +1,16 @@
 {
   "team": "K5-L3B-DAY10-GroupT-PoCtoPilotGate1",
-  "members": ["BuiDucTuan-2A202603902", "NguyenBaoDuy-2A202603890", "PhamDucVinh-2A202603849"],
+  "members": [
+    "BuiDucTuan-2A202603902",
+    "NguyenBaoDuy-2A202603890",
+    "PhamDucVinh-2A202603849"
+  ],
   "incident": "S2",
   "decision_v1": "Thu hẹp",
-  "decision_v2": "",
+  "decision_v2": "Thu hẹp",
   "three_lines": {
-    "environment_assumption": "",
-    "reduce_or_prevent": "",
-    "measure_in_pilot": ""
+    "environment_assumption": "Chữ khách và người mua gõ vào ticket và `checkout_note` chỉ là mô tả sự việc, không bao giờ là lệnh. Ngoài thực tế ai cũng gõ được vào hai ô đó: thẻ S2 có lệnh cài trong ghi chú đơn, dòng \"SYSTEM:\" giả và mã duyệt bịa QL-9981, và ở mốc base model làm theo ở 46,67% lần chạy.",
+    "reduce_or_prevent": "Cổng tiền NGĂN được với lệnh ghi tự động, vì `_refund_gate` không đọc chữ mà tính lại từ tracking DB: bên trả luôn là LOGIX, số tiền không vượt quyền lợi, khoản trên hạn mức mà không có phê duyệt trong bảng `approvals` phải chờ NV-HANH (S2 sau sửa: hoàn sai 0, trừ shop 0). Cổng chỉ GIẢM ở hai chỗ: người duyệt vẫn có thể bị chữ trong ticket thuyết phục, và trần 300.000đ/khách/ngày lách được bằng nhiều mã khách.",
+    "measure_in_pilot": "Tỉ lệ ticket có lệnh trong chữ (`injected_directive_rate`) và có bên trả khác LOGIX (`non_logix_payer_rate`) trên dữ liệu thật; số ca chuyển NV-HANH mỗi giờ và thời gian chờ; chi phí mỗi ticket theo kho, nhất là ticket không tra được đơn; tổng hoàn theo địa chỉ giao để bắt kiểu chia nhỏ qua nhiều mã khách."
   }
 }

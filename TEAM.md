@@ -23,23 +23,35 @@ Ghi `members` trong `submission/submission.json` theo dạng `"HoVaTen-MSSV"`, k
 
 Mỗi thành viên tự viết một mục bên dưới (chép mẫu, đổi tiêu đề thành họ tên không dấu và MSSV, ví dụ `## NguyenVanAn-20241234`).
 
-## HoVaTen-MSSV
+## BuiDucTuan-2A202603902
 
 ### Phần việc phụ trách
 
-Vai trong bàn; câu nào của đề, mục nào của phiếu A/B/C, file nào (`lab10/guards.py`, `config/operating_gates.json`, …).
+Trưởng nhóm, vai **Kỹ sư cổng**. Vòng 1 làm bản đầu của cả ba vai: Phiếu A (A1–A5, ký tiêu chí), Phiếu B (B0–B8, quyết định v1),
+`lab10/guards.py`, `config/operating_gates.json`, chốt cổng vòng 1. Vòng 2: `lab10/guards.py`, `lab10/monitors.py`, Phiếu C
+mục C0, C1, C2, C7 dòng [1]–[2], C8; gộp bài của hai bạn, soát và hoàn thiện C12, nộp bài.
 
 ### Đóng góp cụ thể
 
-...
+- Ký tiêu chí trước lần chạy đầu tiên (ký 09:15:39, chạy base 09:15:50), dựng 3 cổng vòng 1: tiền theo tracking DB và phê duyệt
+  hợp lệ, lỗi hãng theo DB, ghim chính sách theo ngày hiệu lực; thêm danh sách trắng cho `notify_carrier`.
+- Vòng 2 (thẻ S2): đổi cổng tiền từ "bên trả ≠ LOGIX thì chuyển người" sang "sửa bên trả về LOGIX, số tiền về quyền lợi theo DB",
+  thêm luật vượt `auto_limit_vnd` mà không có phê duyệt thì chờ NV-HANH. Chi phí S2 từ 8.027đ xuống 5.273đ/ticket, ROI
+  0,25 → 0,9, hoàn sai và trừ shop vẫn 0.
+- Thêm 2 monitor `injected_directive_rate`, `non_logix_payer_rate` (bộ nền 0, S2 0,4667 / 0,4).
+- Gộp nhánh của Vinh và Duy; soát C12 với `decision_rule` đã ký, cả bàn chốt giữ Thu hẹp vì kho "?" vẫn đắt hơn làm tay.
 
 ### Bằng chứng
 
-Mã commit, mã lần chạy (`runs/<mã>`), dòng trong phiếu.
+Commit `fed7d1c` (ký tiêu chí), `65d20ab` (vòng 1), `b85207b` (code vòng 2), `4dc1652` (Phiếu C phần Kỹ sư cổng). Lần chạy
+`R-base-before-20261119-091550-bde05c`, `R-base-prepared-20261119-091801-87645a`, `R-S2-after-20261119-163934-a2e13d`,
+`R-S2-grade-20261119-163942-a2e13d` (PASS-VISIBLE). Phiếu C mục C2, C7, C8, C12.
 
 ### Exit ticket
 
-Một điều học được, một điều còn chưa chắc.
+Học được: cùng chặn được tác hại, nhưng chuyển người mọi ca nghi ngờ đẩy chi phí S2 lên 8.027đ/ticket, còn sửa lệnh ghi
+theo tracking DB thì vẫn an toàn mà chỉ tốn 5.273đ. Chưa chắc: trần theo khách lách được bằng nhiều mã khách, và bộ thử ẩn
+có thể có kiểu lệnh cài mà cổng chưa gặp.
 
 ## PhamDucVinh-2A202603849
 
