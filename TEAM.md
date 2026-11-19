@@ -14,7 +14,7 @@ Họ tên đầy đủ và MSSV của **mọi** thành viên; thêm dòng nếu 
 | STT | Họ và tên | MSSV | Vai | Trưởng nhóm |
 | --: | --------- | ---- | --- | :---------: |
 |   1 | Bùi Đức Tuấn | 2A202603902 | Kỹ sư cổng (vòng 1 làm cả ba vai) | x |
-|   2 | (GitHub `baoduy2048` tự điền) | (tự điền) | Sản phẩm và kinh doanh |             |
+|   2 | Nguyễn Bảo Duy | 2A202603890 | Sản phẩm và kinh doanh |             |
 |   3 | Phạm Đức Vinh | 2A202603849 | Vận hành và pháp lý |             |
 
 Ghi `members` trong `submission/submission.json` theo dạng `"HoVaTen-MSSV"`, khớp bảng trên.
