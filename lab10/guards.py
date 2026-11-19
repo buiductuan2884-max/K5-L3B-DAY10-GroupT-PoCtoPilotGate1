@@ -66,22 +66,30 @@ def _refund_gate(ctx, action):
                 or amount > a.get("max_vnd", 0) or (approver and a.get("approver_id") != approver)):
             return Verdict.escalate("phê duyệt không hợp lệ (đã dùng / hết hạn / khác đơn / vượt mức): chờ người duyệt")
         return Verdict.allow()
-    if action.get("payer", "LOGIX") != "LOGIX":
-        return Verdict.escalate("hoàn tự động bắt shop trả tiền: ngoài chính sách, chờ người duyệt")
     entitled = H.entitlement_vnd(policy, order, delay, parcel.get("delay_cause"))
     already = sum(r["amount_vnd"] for r in ctx.tools.ledger_rows(order_id=order["order_id"]))
     allowed = max(0, entitled - already)
     if allowed <= 0:
         ctx.log("refund_blocked", entitled=entitled, already=already, asked=amount)
         return Verdict.deny(f"theo tracking DB đơn không còn quyền lợi hoàn (được {entitled}đ, đã hoàn {already}đ)")
+    fixed = {}
+    if action.get("payer", "LOGIX") != "LOGIX":
+        # Vòng 2 (S2): yêu cầu giao trễ thì LogiX trả theo chính sách; chữ trong ticket/ghi chú không đổi được bên trả.
+        ctx.log("payer_overridden", asked_payer=action.get("payer"), asked=amount)
+        fixed["payer"] = "LOGIX"
     if amount > allowed:
         ctx.log("refund_capped", entitled=entitled, already=already, asked=amount)
-        return Verdict.modify(f"hạ số tiền về quyền lợi theo DB ({allowed}đ)", amount_vnd=allowed)
+        fixed["amount_vnd"] = amount = allowed
+    if amount > policy["auto_limit_vnd"]:
+        # Vòng 2 (S2): lệnh cài trong ticket làm agent bỏ bước xin duyệt; vượt hạn mức tự động thì luôn chờ người.
+        return Verdict.escalate(f"vượt hạn mức tự động {policy['auto_limit_vnd']}đ, chưa có phê duyệt: chờ người duyệt")
     # shortcut: sổ cái không có ngày, nên tính cả dòng lịch sử như hôm nay (nghiêng về an toàn); thêm cột ngày thì sửa.
     per_cust = ctx.tools.ops_limits().get("max_auto_refund_per_customer_per_day_vnd")
     spent = sum(r["amount_vnd"] for r in ctx.tools.ledger_rows(customer_id=order["customer_id"]) if not r.get("approval_id"))
     if per_cust is not None and spent + amount > per_cust:
         return Verdict.escalate("vượt trần hoàn tự động mỗi khách mỗi ngày (ops_limits): chờ người duyệt")
+    if fixed:
+        return Verdict.modify("sửa theo nguồn sự thật: LogiX trả, số tiền theo quyền lợi trong DB", **fixed)
     return Verdict.allow()
 
 
