@@ -23,23 +23,25 @@ Ghi `members` trong `submission/submission.json` theo dạng `"HoVaTen-MSSV"`, k
 
 Mỗi thành viên tự viết một mục bên dưới (chép mẫu, đổi tiêu đề thành họ tên không dấu và MSSV, ví dụ `## NguyenVanAn-20241234`).
 
-## HoVaTen-MSSV
+## NguyenBaoDuy-2A202603890
 
 ### Phần việc phụ trách
 
-Vai trong bàn; câu nào của đề, mục nào của phiếu A/B/C, file nào (`lab10/guards.py`, `config/operating_gates.json`, …).
+Vai **Sản phẩm và kinh doanh**. Phiếu A: câu 1.1–1.6 (mục tiêu, thước đo và tiêu chí chấp nhận); Phiếu B: câu 2.3 (B3, bản đồ dữ liệu/drift) và câu 2.9 (B7.4, cổng kinh doanh); `config/acceptance_criteria.json`, mục `business` trong `config/operating_gates.json`; Phiếu C: C5 (specification và giả định môi trường), C7 (lý do kinh doanh cho phương án sửa) và C12 (quyết định Gate 1 v2).
 
 ### Đóng góp cụ thể
 
-...
+- Xác định mục tiêu kinh doanh đi cùng ngưỡng an toàn: hoàn sai, lỗi hãng oan và lộ dữ liệu tối đa 0; `pass_rate` tối thiểu 0,97, `pass_k` tối thiểu 0,9; chi phí tối đa 7.000đ/ticket, ROI tối thiểu 0,3 và không có ca ùn. Đặt `escalation_rate` tối đa 0,25 là ngưỡng mong muốn.
+- Ghi lý do cho các cổng kinh doanh: trần hoàn tự động 1.500.000đ/ngày (trong ngân sách Finance 2.000.000đ), chi phí LLM tối đa 1.500đ/ticket, ROI tối thiểu 0,3; giữ phạm vi `all` ở lần đo để có số so sánh theo kho trước khi quyết định phạm vi pilot.
+- Đối chiếu kết quả S2 trước và sau sửa. Mốc prepared còn chi phí 8.027đ/ticket và ROI 0,25 do 8/15 ca chuyển người; mốc after giảm còn 5.273đ/ticket, ROI 0,9 và 3 ca cần người. Cùng kết quả bộ nền không regression, dùng các bằng chứng này để ghi quyết định v2 **Tiếp tục** theo tiêu chí đã ký; nêu rõ cần xác nhận lại số kinh doanh trong pilot thật vì dữ liệu lab là mock.
 
 ### Bằng chứng
 
-Mã commit, mã lần chạy (`runs/<mã>`), dòng trong phiếu.
+Phiếu A mục A1–A5; Phiếu B mục B3, B7.4, B8; Phiếu C mục C5, C7, C12; `config/acceptance_criteria.json` và `config/operating_gates.json` mục `business`. Mã lần chạy: `R-S2-prepared-20261119-163834-87645a`, `R-S2-after-20261119-163934-a2e13d`, `R-S2-grade-20261119-163942-a2e13d`, `R-base-after-20261119-163935-a2e13d`. (Bổ sung mã commit cá nhân nếu có.)
 
 ### Exit ticket
 
-Một điều học được, một điều còn chưa chắc.
+Điều học được: cổng an toàn phải cân bằng với chi phí vận hành; chuyển nhiều ca sang người có thể làm chi phí vượt ngưỡng dù tác hại đã được chặn. Điều còn chưa chắc: các con số chi phí, ROI và tải người duyệt trong dữ liệu mock có phản ánh pilot thật hay không; cần đo lại theo kho và trong giờ cao điểm.
 
 ## PhamDucVinh-2A202603849
 
