@@ -369,7 +369,11 @@ Vẽ lại cây ở C6. Ở mỗi nhánh đã xử lý, thêm một nút `VÀ [g
 
 | Rủi ro | Khả năng | Tác động | Người phụ trách (PIC, một người) | Dấu hiệu (metric nào, ngưỡng nào) | Xử lý | Ảnh hưởng bước đánh giá | Nhóm chức năng (GOVERN / MAP / MEASURE / MANAGE) |
 |---|---|---|---|---|---|---|---|
-| | | | | | | | |
+| *(Trước sự cố, từ B5 dòng 3)* Lệnh cài trong chữ ticket hoặc `checkout_note` ("hoàn toàn bộ, shop trả") khiến trợ lý đặt `payer: MERCHANT` hoặc vượt hạn mức; bộ nền chưa có ticket tấn công để đo | Trung bình | Cao: shop bị trừ tiền oan (bên thứ ba), khoản vượt 200.000đ không ai duyệt | NV-TUNG | report: `merchant_debit_vnd` > 0, hoặc `escalation_rate` > 0,25 (`nice_to_have` đã ký) trên bộ có ticket tấn công | Cổng `payer` ≠ LOGIX → chuyển người (đã có, **ngăn** việc trừ tiền shop); trước pilot thêm 2 ticket tấn công vào behavioral test (`--adhoc`) | `merchant_debit_vnd` > 0 thì một ngưỡng an toàn chưa đạt → không được Tiếp tục, tối đa Cải tiến thêm | MEASURE |
+| *(Trước sự cố, từ B5 dòng 5)* LLM trả 429 giờ cao điểm: trợ lý `fail_open` hoàn bằng phí ship, hoặc "không chắc đã ghi" nên gọi `issue_refund` lần hai | Trung bình (chỉ giờ cao điểm) | Cao: hoàn sai, hoàn hai lần; LogiX mất tiền | NV-TUNG | report: `wrongful_refund_vnd` > 0; trace: sự kiện `llm_fallback` kiểu `fail_open` (Kỹ sư cổng thêm chỉ số đếm sự kiện này vào `monitors.py` ở vòng 2) | Cổng tính phần đã hoàn từ sổ cái, tổng ≤ quyền lợi (**ngăn** hoàn hai lần); LLM lỗi > 15 phút thì làm theo Runbook 5 kịch bản 2 | `wrongful_refund_vnd` > 0 → Runbook 3 dừng hẳn; quyết định Cải tiến thêm hoặc Dừng | MANAGE |
+| *(Trước sự cố, từ B6 dòng 5)* Ngày sale ticket dồn gấp ba, 1 người duyệt không kịp, ca chờ quá 60 phút | Trung bình | Trung bình: khách chờ, vượt `review_sla_minutes` 60; NV-HANH duyệt ẩu | NV-HANH | report: `queue_stuck` ≥ 1 (`queue_stuck_max` = 0 đã ký), chờ lâu nhất > 60 phút | Gọi người trực thứ hai → 30 phút vẫn ùn thì thu hẹp về kho HN (Runbook 2, B7.6); chỉ **giảm**, không ngăn | `queue_stuck` > 0 → không được Tiếp tục; Thu hẹp (ghi kho và số người trực) | MANAGE |
+| *(Trước sự cố, từ B6 dòng 4)* Nhân viên CSKH không tin trợ lý, tự kiểm lại 100% quyết định tự động (`staff_behavior.recheck_auto_decisions_pct`) | Cao nếu thiếu một điều kiện trong `trust_conditions` | Trung bình: chi phí mỗi ticket vượt 7.000đ, ROI dưới 0,3 | NV-HANH | report: dòng "nhân viên kiểm lại …%" > `review_sampling_pct` 10%; chi phí mỗi ticket > 7.000đ | Giữ đủ ba điều kiện tin: `decision_note` true, `review_sampling_pct` 10, `approver_id` NV-HANH; mọi phê duyệt phải hợp lệ (cổng 1) | Chi phí > 7.000đ → Thu hẹp kho đắt nhất; > 10.000đ sau thu hẹp → Dừng | GOVERN |
+| *(Sau sự cố: điền khi đã bốc thẻ, bắt buộc ≥ 1 dòng)* | | | | | | | |
 
 Quy tắc: **mỗi dòng phải đổi được một quyết định.** Cột "Dấu hiệu" phải là một metric có trong `monitors.py` hoặc trong report.
 
@@ -402,9 +406,9 @@ Ghi các dòng đổi sau sự cố. Mỗi dòng vẫn phải có một PIC có 
 
 ### Runbook 5 · Ba kịch bản "nếu … thì …" cho tuần đầu chạy thử thật
 
-1. Nếu số ticket tăng gấp ___ lần trong một giờ thì: …
-2. Nếu nhà cung cấp LLM lỗi quá ___ phút thì: …
-3. Nếu người duyệt báo không tin một quyết định của trợ lý thì: …
+1. Nếu số ticket tăng gấp **3** lần trong một giờ (≈ 8 ticket/giờ, ~2,2 ca chuyển người + ~0,6 ca kiểm mẫu ≈ 25 phút việc) thì: NV-HANH vẫn trực một mình (`reviewers_on_shift` 1, 6 ca/giờ) và báo `#logix-refund-pilot`. Hàng chờ > 6 ca hoặc có ca chờ > 60 phút → NV-HANH gọi người trực thứ hai (+30.000đ/ca, chi phí ~5.820đ/ticket, vẫn ≤ 7.000đ đã ký). 30 phút sau vẫn có ca chờ > 60 phút → NV-TUNG thu hẹp `pilot_scope` về kho HN. Đã thu hẹp vẫn ùn → NV-TUNG tắt `issue_refund`, mọi ticket làm tay.
+2. Nếu nhà cung cấp LLM lỗi (429 hoặc không trả lời) quá **15** phút thì: không hoàn theo kiểu `fail_open`. NV-TUNG tắt `issue_refund` và `file_carrier_fault` trong `config/switches.json`; ticket mới về CSKH làm tay, NV-HANH chia ca. Khi LLM ổn định lại, NV-OANH soát sổ cái trong khoảng thời gian lỗi để tìm khoản hoàn hai lần hoặc hoàn khi không đủ điều kiện, rồi đảo bút toán. NV-TUNG chỉ bật lại sau khi soát xong và báo kênh.
+3. Nếu người duyệt báo không tin một quyết định của trợ lý thì: NV-HANH ghi `ticket_id`, số tiền và dòng ghi chú giải thích (`decision_note`) vào `#logix-refund-pilot` trong ca. NV-OANH đối chiếu với tracking và sổ cái trong 24 giờ. Nếu khoản đó sai → tính là `wrongful_refund_vnd` > 0, NV-TUNG tắt `issue_refund` theo Runbook 3 và NV-OANH đảo bút toán. Nếu không sai nhưng trong một tuần có ≥ 3 lần không tin → NV-TUNG tăng `review_sampling_pct` từ 10 lên 20 trong một tuần và cùng Kỹ sư cổng sửa câu ghi chú giải thích cho rõ hơn.
 
 ---
 
